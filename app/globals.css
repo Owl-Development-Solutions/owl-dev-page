@@ -44,3 +44,52 @@ html {
   opacity: 0.14;
   mask-image: radial-gradient(600px circle at 20% 15%, black 40%, transparent 75%);
 }
+
+.logo-glow-wrap {
+  transition: box-shadow 0.35s ease;
+}
+
+.logo-image {
+  transition:
+    filter 0.35s ease,
+    transform 0.35s ease;
+}
+
+.logo-glow-ring {
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(34, 211, 238, 0.35) 0%,
+    rgba(34, 211, 238, 0.08) 55%,
+    transparent 70%
+  );
+  transition: opacity 0.35s ease;
+}
+
+.logo-glow-wrap:hover {
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 18px rgba(34, 211, 238, 0.35),
+    0 0 36px rgba(34, 211, 238, 0.2);
+}
+
+.logo-glow-wrap:hover .logo-image {
+  filter: brightness(1.15) saturate(1.2);
+  transform: scale(1.04);
+}
+
+.logo-glow-wrap:hover .logo-glow-ring {
+  opacity: 1;
+  animation: logo-glow-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes logo-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
