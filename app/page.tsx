@@ -1,4 +1,6 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
+import ContactForm from "@/components/ContactForm";
 
 export default function Home() {
   return (
@@ -10,9 +12,16 @@ export default function Home() {
       <header className="sticky top-0 z-20 border-b border-white/5 bg-[#07090d]/70 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-4">
           <a href="#" className="group inline-flex items-center gap-3">
-            <span className="relative grid h-9 w-9 place-items-center rounded-full bg-white/5 ring-1 ring-white/10">
-              <OwlMark />
-              <span className="absolute inset-0 rounded-full glow-cyan opacity-0 transition-opacity group-hover:opacity-100" />
+            <span className="logo-glow-wrap relative grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
+              <Image
+                src="/owldev.png"
+                alt="OWLDEV logo"
+                width={36}
+                height={36}
+                className="logo-image h-9 w-9 rounded-full object-cover"
+                priority
+              />
+              <span className="logo-glow-ring absolute inset-0 rounded-full" />
             </span>
             <span className="leading-tight">
               <span className="block text-sm font-semibold tracking-wide">
@@ -298,27 +307,7 @@ export default function Home() {
                 Share a quick summary and we’ll respond with next steps.
               </p>
 
-              <form className="mt-6 grid gap-3">
-                <Field label="Name" placeholder="Your name" />
-                <div className="grid gap-3 md:grid-cols-2">
-                  <Field label="Email" placeholder="you@email.com" />
-                  <Field label="Phone" placeholder="+63 9xx xxx xxxx" />
-                </div>
-                <Field
-                  label="Message"
-                  placeholder="What do you want to build?"
-                  multiline
-                />
-                <button
-                  type="button"
-                  className="mt-1 inline-flex h-11 items-center justify-center rounded-full bg-cyan-300 px-6 text-sm font-semibold text-[#061018] shadow-[0_12px_40px_-20px_rgba(34,211,238,0.85)] transition hover:bg-cyan-200"
-                >
-                  Send message
-                </button>
-                <p className="text-xs text-zinc-400">
-                  This is a frontend-only form for now (no backend configured).
-                </p>
-              </form>
+              <ContactForm />
             </div>
           </div>
         </section>
@@ -412,34 +401,6 @@ function PortfolioCard({ title, tags }: { title: string; tags: string[] }) {
         ))}
       </div>
     </div>
-  );
-}
-
-function Field({
-  label,
-  placeholder,
-  multiline,
-}: {
-  label: string;
-  placeholder: string;
-  multiline?: boolean;
-}) {
-  return (
-    <label className="grid gap-1.5">
-      <span className="text-xs font-semibold text-zinc-300">{label}</span>
-      {multiline ? (
-        <textarea
-          rows={4}
-          placeholder={placeholder}
-          className="w-full resize-none rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none ring-0 transition focus:border-cyan-300/30 focus:bg-black/30"
-        />
-      ) : (
-        <input
-          placeholder={placeholder}
-          className="h-11 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none ring-0 transition focus:border-cyan-300/30 focus:bg-black/30"
-        />
-      )}
-    </label>
   );
 }
 
