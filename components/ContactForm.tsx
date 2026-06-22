@@ -1,20 +1,25 @@
 "use client";
 
 import Script from "next/script";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { ContactFormData, ContactFormErrors } from "@/lib/validation";
 import { hasValidationErrors, validateContactForm } from "@/lib/validation";
 
 declare global {
   interface Window {
     grecaptcha?: {
-      ready: (callback: () => void) => void;
-      execute: (siteKey: string, options: { action: string }) => Promise<string>;
+      ready: (cb: () => void) => void;
+      execute: (
+        siteKey: string,
+        options: { action: string },
+      ) => Promise<string>;
     };
   }
 }
 
-const initialForm: ContactFormData = {
+type SubmitStatus = "idle" | "loading" | "success" | "error";
+
+const EMPTY_FORM: ContactFormData = {
   name: "",
   email: "",
   phone: "",
@@ -22,22 +27,39 @@ const initialForm: ContactFormData = {
 };
 
 export default function ContactForm() {
-  const [form, setForm] = useState<ContactFormData>(initialForm);
+  const [form, setForm] = useState<ContactFormData>(EMPTY_FORM);
   const [errors, setErrors] = useState<ContactFormErrors>({});
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<SubmitStatus>("idle");
   const [feedback, setFeedback] = useState("");
-  const [recaptchaReady, setRecaptchaReady] = useState(false);
 
+  const recaptchaReady = useRef(false);
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
-  const updateField = (field: keyof ContactFormData, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
-    setErrors((current) => ({ ...current, [field]: undefined }));
-  };
+  function updateField(field: keyof ContactFormData, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  }
 
-  const getRecaptchaToken = useCallback(async () => {
-    if (!siteKey || !window.grecaptcha) {
-      return "";
+  const getRecaptchaToken = useCallback(async (): Promise<string> => {
+    if (!siteKey) return "";
+
+    // If grecaptcha hasn't loaded yet, wait up to 5s for it
+    if (!window.grecaptcha) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("reCAPTCHA script timed out")),
+          5000,
+        );
+        const interval = setInterval(() => {
+          if (window.grecaptcha) {
+            clearTimeout(timeout);
+            clearInterval(interval);
+            resolve();
+          }
+        }, 100);
+      });
     }
 
     return new Promise<string>((resolve, reject) => {
@@ -47,30 +69,43 @@ export default function ContactForm() {
             action: "contact_form",
           });
           resolve(token);
-        } catch (error) {
-          reject(error);
+        } catch (err) {
+          reject(err);
         }
       });
     });
   }, [siteKey]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus("idle");
-    setFeedback("");
 
     const validationErrors = validateContactForm(form);
     if (hasValidationErrors(validationErrors)) {
       setErrors(validationErrors);
       setStatus("error");
-      setFeedback("Please fix the highlighted fields.");
+      setFeedback("Please fix the highlighted fields before sending.");
       return;
     }
 
     setStatus("loading");
+    setFeedback("");
+    setErrors({});
 
     try {
-      const recaptchaToken = siteKey ? await getRecaptchaToken() : "";
+      let recaptchaToken = "";
+
+      if (siteKey) {
+        try {
+          recaptchaToken = await getRecaptchaToken();
+        } catch (err) {
+          console.warn("[reCAPTCHA] Failed to get token:", err);
+          setStatus("error");
+          setFeedback(
+            "Security check failed to load. Please refresh the page and try again.",
+          );
+          return;
+        }
+      }
 
       const response = await fetch("/api/contact", {
         method: "POST",
@@ -85,23 +120,25 @@ export default function ContactForm() {
       };
 
       if (!response.ok || !result.success) {
-        if (result.errors) {
-          setErrors(result.errors);
-        }
+        if (result.errors) setErrors(result.errors);
         setStatus("error");
-        setFeedback(result.message || "Failed to send message.");
+        setFeedback(result.message || "Failed to send your message.");
         return;
       }
 
-      setForm(initialForm);
+      setForm(EMPTY_FORM);
       setErrors({});
       setStatus("success");
       setFeedback(result.message);
     } catch {
       setStatus("error");
-      setFeedback("Network error. Please check your connection and try again.");
+      setFeedback(
+        "Network error — please check your connection and try again.",
+      );
     }
-  };
+  }
+
+  const isSubmitting = status === "loading";
 
   return (
     <>
@@ -109,18 +146,25 @@ export default function ContactForm() {
         <Script
           src={`https://www.google.com/recaptcha/api.js?render=${siteKey}`}
           strategy="afterInteractive"
-          onLoad={() => setRecaptchaReady(true)}
+          onLoad={() => {
+            recaptchaReady.current = true;
+          }}
         />
       ) : null}
 
-      <form className="mt-6 grid gap-3" onSubmit={handleSubmit} noValidate>
+      <form
+        className="mt-6 grid gap-3"
+        onSubmit={handleSubmit}
+        noValidate
+        aria-label="Contact form"
+      >
         <FormField
           label="Name"
           name="name"
           value={form.name}
           placeholder="Juan Dela Cruz"
           error={errors.name}
-          onChange={(value) => updateField("name", value)}
+          onChange={(v) => updateField("name", v)}
         />
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -131,7 +175,7 @@ export default function ContactForm() {
             value={form.email}
             placeholder="juan@gmail.com"
             error={errors.email}
-            onChange={(value) => updateField("email", value)}
+            onChange={(v) => updateField("email", v)}
           />
           <FormField
             label="Phone Number"
@@ -140,7 +184,7 @@ export default function ContactForm() {
             value={form.phone}
             placeholder="09123456789"
             error={errors.phone}
-            onChange={(value) => updateField("phone", value)}
+            onChange={(v) => updateField("phone", v)}
           />
         </div>
 
@@ -151,25 +195,27 @@ export default function ContactForm() {
           placeholder="Hello OWLDEV, I would like to inquire about your web development services."
           error={errors.message}
           multiline
-          onChange={(value) => updateField("message", value)}
+          onChange={(v) => updateField("message", v)}
         />
 
         <button
           type="submit"
-          disabled={status === "loading" || (!!siteKey && !recaptchaReady)}
+          disabled={isSubmitting}
+          aria-busy={isSubmitting}
           className="mt-1 inline-flex h-11 items-center justify-center rounded-full bg-cyan-300 px-6 text-sm font-semibold text-[#061018] shadow-[0_12px_40px_-20px_rgba(34,211,238,0.85)] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {status === "loading" ? "Sending..." : "Send Message"}
+          {isSubmitting ? "Sending…" : "Send Message"}
         </button>
 
         {feedback ? (
           <p
+            role="status"
+            aria-live="polite"
             className={`rounded-2xl px-4 py-3 text-sm ring-1 ${
               status === "success"
                 ? "bg-emerald-400/10 text-emerald-200 ring-emerald-300/20"
                 : "bg-red-400/10 text-red-200 ring-red-300/20"
             }`}
-            role="status"
           >
             {feedback}
           </p>
@@ -177,7 +223,25 @@ export default function ContactForm() {
 
         {siteKey ? (
           <p className="text-[11px] leading-5 text-zinc-500">
-            Protected by Google reCAPTCHA.
+            This site is protected by reCAPTCHA and the Google{" "}
+            <a
+              href="https://policies.google.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-zinc-400"
+            >
+              Privacy Policy
+            </a>{" "}
+            and{" "}
+            <a
+              href="https://policies.google.com/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-zinc-400"
+            >
+              Terms of Service
+            </a>{" "}
+            apply.
           </p>
         ) : null}
       </form>
@@ -185,16 +249,7 @@ export default function ContactForm() {
   );
 }
 
-function FormField({
-  label,
-  name,
-  value,
-  placeholder,
-  error,
-  multiline,
-  type = "text",
-  onChange,
-}: {
+type FormFieldProps = {
   label: string;
   name: string;
   value: string;
@@ -203,41 +258,65 @@ function FormField({
   multiline?: boolean;
   type?: string;
   onChange: (value: string) => void;
-}) {
-  const inputClassName =
-    "w-full rounded-2xl border bg-black/25 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none ring-0 transition focus:bg-black/30";
+};
+
+function FormField({
+  label,
+  name,
+  value,
+  placeholder,
+  error,
+  multiline = false,
+  type = "text",
+  onChange,
+}: FormFieldProps) {
+  const id = `field-${name}`;
+  const errorId = `${id}-error`;
+
+  const baseClass =
+    "w-full rounded-2xl border bg-black/25 px-4 py-3 text-sm text-zinc-100 " +
+    "placeholder:text-zinc-500 outline-none transition focus:bg-black/30";
+
+  const borderClass = error
+    ? "border-red-400/40 focus:border-red-400/60"
+    : "border-white/10 focus:border-cyan-300/30";
+
+  const sharedProps = {
+    id,
+    name,
+    value,
+    placeholder,
+    "aria-invalid": error ? ("true" as const) : undefined,
+    "aria-describedby": error ? errorId : undefined,
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      onChange(e.target.value),
+  };
 
   return (
-    <label className="grid gap-1.5">
-      <span className="text-xs font-semibold text-zinc-300">{label}</span>
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-zinc-300">
+        {label}
+      </label>
+
       {multiline ? (
         <textarea
-          name={name}
+          {...sharedProps}
           rows={4}
-          value={value}
-          placeholder={placeholder}
-          onChange={(event) => onChange(event.target.value)}
-          className={`${inputClassName} resize-none ${
-            error
-              ? "border-red-400/40 focus:border-red-400/50"
-              : "border-white/10 focus:border-cyan-300/30"
-          }`}
+          className={`${baseClass} ${borderClass} resize-none`}
         />
       ) : (
         <input
-          name={name}
+          {...sharedProps}
           type={type}
-          value={value}
-          placeholder={placeholder}
-          onChange={(event) => onChange(event.target.value)}
-          className={`h-11 ${inputClassName} ${
-            error
-              ? "border-red-400/40 focus:border-red-400/50"
-              : "border-white/10 focus:border-cyan-300/30"
-          }`}
+          className={`h-11 ${baseClass} ${borderClass}`}
         />
       )}
-      {error ? <span className="text-xs text-red-300">{error}</span> : null}
-    </label>
+
+      {error ? (
+        <span id={errorId} role="alert" className="text-xs text-red-300">
+          {error}
+        </span>
+      ) : null}
+    </div>
   );
 }
