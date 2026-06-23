@@ -331,11 +331,14 @@ export default function Home() {
           </div>
           <div className="flex gap-3 md:justify-end">
             <a
-              href="#"
+              href="https://www.facebook.com/profile.php?id=100075958101611"
+              target="_blank"
+              rel="noopener noreferrer"
               className="rounded-full bg-white/5 px-4 py-2 text-sm font-semibold ring-1 ring-white/10 transition hover:bg-white/7"
             >
               Facebook
             </a>
+
             <a
               href="#contact"
               className="rounded-full bg-white/5 px-4 py-2 text-sm font-semibold ring-1 ring-white/10 transition hover:bg-white/7"
