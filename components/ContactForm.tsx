@@ -1,7 +1,7 @@
 "use client";
 
 import Script from "next/script";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ContactFormData, ContactFormErrors } from "@/lib/validation";
 import { hasValidationErrors, validateContactForm } from "@/lib/validation";
 
@@ -162,37 +162,34 @@ export default function ContactForm() {
           label="Name"
           name="name"
           value={form.name}
-          placeholder="Juan Dela Cruz"
+          placeholder="Full Name"
           error={errors.name}
           onChange={(v) => updateField("name", v)}
         />
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <FormField
-            label="Email"
-            name="email"
-            type="email"
-            value={form.email}
-            placeholder="juan@gmail.com"
-            error={errors.email}
-            onChange={(v) => updateField("email", v)}
-          />
-          <FormField
-            label="Phone Number"
-            name="phone"
-            type="tel"
-            value={form.phone}
-            placeholder="09123456789"
-            error={errors.phone}
-            onChange={(v) => updateField("phone", v)}
-          />
-        </div>
+        <FormField
+          label="Email"
+          name="email"
+          type="email"
+          value={form.email}
+          placeholder="Example@gmail.com"
+          error={errors.email}
+          onChange={(v) => updateField("email", v)}
+        />
+        <PhoneFormField
+          label="Phone Number"
+          name="phone"
+          value={form.phone}
+          placeholder="(123) 456-7890"
+          error={errors.phone}
+          onChange={(v) => updateField("phone", v)}
+        />
 
         <FormField
           label="Message"
           name="message"
           value={form.message}
-          placeholder="Hello OWLDEV, I would like to inquire about your web development services."
+          placeholder="Describe your message here..."
           error={errors.message}
           multiline
           onChange={(v) => updateField("message", v)}
@@ -259,6 +256,150 @@ type FormFieldProps = {
   type?: string;
   onChange: (value: string) => void;
 };
+
+const COUNTRY_CODES = [
+  { code: "+1", country: "US/CA", flag: "us" },
+  { code: "+44", country: "UK", flag: "gb" },
+  { code: "+61", country: "AU", flag: "au" },
+  { code: "+63", country: "PH", flag: "ph" },
+  { code: "+91", country: "IN", flag: "in" },
+  { code: "+86", country: "CN", flag: "cn" },
+  { code: "+81", country: "JP", flag: "jp" },
+  { code: "+49", country: "DE", flag: "de" },
+  { code: "+33", country: "FR", flag: "fr" },
+  { code: "+39", country: "IT", flag: "it" },
+  { code: "+34", country: "ES", flag: "es" },
+  { code: "+55", country: "BR", flag: "br" },
+  { code: "+52", country: "MX", flag: "mx" },
+  { code: "+7", country: "RU", flag: "ru" },
+  { code: "+82", country: "KR", flag: "kr" },
+  { code: "+65", country: "SG", flag: "sg" },
+  { code: "+60", country: "MY", flag: "my" },
+  { code: "+62", country: "ID", flag: "id" },
+  { code: "+66", country: "TH", flag: "th" },
+  { code: "+84", country: "VN", flag: "vn" },
+];
+
+function PhoneFormField({
+  label,
+  name,
+  value,
+  placeholder,
+  error,
+  onChange,
+}: Omit<FormFieldProps, "type" | "multiline">) {
+  const id = `field-${name}`;
+  const errorId = `${id}-error`;
+
+  const baseClass =
+    "w-full rounded-2xl border bg-black/25 text-sm text-zinc-100 " +
+    "transition focus-within:bg-black/30 flex h-11 relative";
+
+  const borderClass = error
+    ? "border-red-400/40 focus-within:border-red-400/60"
+    : "border-white/10 focus-within:border-cyan-300/30";
+
+  const [countryCode, setCountryCode] = useState("+63");
+  const [number, setNumber] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!value) {
+      setNumber("");
+    }
+  }, [value]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleCountrySelect = (code: string) => {
+    setCountryCode(code);
+    setIsOpen(false);
+    if (number) onChange(`${code} ${number}`);
+  };
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newNum = e.target.value;
+    setNumber(newNum);
+    onChange(`${countryCode} ${newNum}`);
+  };
+
+  const selectedCountry = COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES[3]; // Default to PH
+
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-zinc-300">
+        {label}
+      </label>
+
+      <div className={`${baseClass} ${borderClass}`}>
+        <div className="relative flex items-center h-full" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex items-center h-full px-3 gap-2 bg-transparent border-r border-white/10 hover:bg-white/5 transition"
+            aria-label="Select Country Code"
+          >
+            <img 
+              src={`https://flagcdn.com/w20/${selectedCountry.flag}.png`} 
+              alt={selectedCountry.country}
+              width="20"
+              className="rounded-[2px]"
+            />
+            <span className="text-zinc-300 text-sm">
+              {selectedCountry.code}
+            </span>
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          {isOpen && (
+            <div className="absolute top-full left-0 mt-1 w-56 max-h-60 overflow-y-auto rounded-xl border border-white/10 bg-[#07090d]/95 backdrop-blur-md shadow-xl z-50 py-1 scrollbar-thin flex flex-col">
+              {COUNTRY_CODES.map((c) => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => handleCountrySelect(c.code)}
+                  className={`flex w-full items-center gap-3 px-3 py-2 text-sm text-left hover:bg-white/10 transition ${countryCode === c.code ? 'bg-white/5' : ''}`}
+                >
+                  <img src={`https://flagcdn.com/w20/${c.flag}.png`} alt={c.country} width="20" className="rounded-[2px]" />
+                  <span className="text-zinc-100 flex-1">{c.country}</span>
+                  <span className="text-zinc-500">{c.code}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <input
+          id={id}
+          name={name}
+          value={number}
+          placeholder={placeholder}
+          type="tel"
+          className="flex-1 bg-transparent px-4 outline-none placeholder:text-zinc-500 min-w-0"
+          aria-invalid={error ? "true" : undefined}
+          aria-describedby={error ? errorId : undefined}
+          onChange={handleNumberChange}
+        />
+      </div>
+
+      {error ? (
+        <span id={errorId} role="alert" className="text-xs text-red-300">
+          {error}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function FormField({
   label,
