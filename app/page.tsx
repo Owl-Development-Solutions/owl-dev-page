@@ -247,14 +247,14 @@ export default function Home() {
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             <PortfolioCard
-              title="Mobile Banking UI"
+              title="Networking Management System"
               tags={["UI/UX", "Design System"]}
             />
             <PortfolioCard
-              title="SaaS Dashboard"
+              title="Payroll Management System"
               tags={["Web App", "Analytics"]}
             />
-            <PortfolioCard title="Company Website" tags={["Brand", "Landing"]} />
+            <PortfolioCard title="E-commer Managemet System" tags={["Brand", "Landing"]} />
           </div>
         </section>
 
